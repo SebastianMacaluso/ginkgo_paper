@@ -38,7 +38,13 @@
 \usepackage{lineno}
 
 \allowdisplaybreaks
-\bibliographystyle{JHEP}
+% \bibliographystyle{JHEP}
+\bibliographystyle{utphys}
+%% Some suggested packages, as needed:
+% \usepackage{natbib} % has a nice set of citation styles and commands
+%     % \bibliographystyle{plainnat}
+%     \bibliographystyle{utphys}
+%     \renewcommand{\bibsection}{\subsubsection*{References}}
 
 \addtolength{\oddsidemargin}{-.4in}
 \addtolength{\evensidemargin}{-.4in}
@@ -212,7 +218,7 @@
 {\large $\text{Kyle Cranmer}^1$, $\text{Sebastian Macaluso}^1$ and $\text{Duccio Pappadopulo}^2$}
 \vskip 0.6cm
 {\small \it 1 Center for Cosmology and Particle Physics $\&$ Center for Data Science, New York University, USA} \\
-{\small \it 2 Bloomberg LP, New York, NY 10022, USA.}
+{\small \it 2 Bloomberg LP, New York, NY 10022, USA. (Work done before joining Bloomberg LP.)}
 \vskip 2.0cm
 
 \end{center}
@@ -284,7 +290,7 @@ We show in Fig.~\ref{fig:1DTree} a tree visualization plot of a sample jet gener
 \end{figure*}
 
 %%-------------
-\subsection{Generative process}
+\subsection{Generative process}\label{Generatiion}
 
 In this section, we describe the implementation of the generative process, which depends on the following input parameters:
 \begin{itemize}
@@ -304,9 +310,9 @@ Next, we describe the splitting of a node as follows:
 t_L \sim f(t | \lambda, t_{\text{P}})=\frac{1}{1-e^{- \lambda}} \frac{\lambda}{t_{\text{P}}} e^{- \frac{\lambda}{ t_{\text{P}}} t} 
 \eea
 \bea \label{eq:exponential2}
-t_R \sim f(t | \lambda, t_{\text{P}}, t_L)= \frac{1}{1-e^{- \lambda}} \frac{\lambda}{ (\sqrt{t_{\text{P}}}-\sqrt{t_L})^2} e^{- \frac{\lambda}{ (\sqrt{t_{\text{P}}}-\sqrt{t_L})^2} t} 
+t_R \sim f(t | \lambda, (\sqrt{t_{\text{P}}}-\sqrt{t_L})^2)= \frac{1}{1-e^{- \lambda}} \frac{\lambda}{ (\sqrt{t_{\text{P}}}-\sqrt{t_L})^2} e^{- \frac{\lambda}{ (\sqrt{t_{\text{P}}}-\sqrt{t_L})^2} t} 
 \eea
-and  define $m_L=\sqrt{t_\text{L}}$ and $m_R=\sqrt{t_\text{R}}$. We apply a veto on sampled values where $t_L  \geqslant t_{\text{P}}$ and $t_R \geqslant (\sqrt{t_{\text{P}}}-\sqrt{t_L})^2$.
+and  define $m_L=\sqrt{t_\text{L}}$ and $m_R=\sqrt{t_\text{R}}$. We apply a veto on sampled values where $t_L  \geqslant t_{\text{P}}$ and $t_R \geqslant (\sqrt{t_{\text{P}}}-\sqrt{t_L})^2$. For inference, given two particles, we assign $t_L \rightarrow \text{max}\{t_L, t_R\} $ and $t_R \rightarrow \text{min}\{t_L, t_R\} $.
 
 
 \item Compute a 2-body decay in the parent rest frame, where its momentum is $p^\mu_p=p^\mu_{\text{L}}+p^\mu_{\text{R}}=(\sqrt{s}, 0, 0, 0)$. From requiring 4-momentum conservation, the children energies are given by
@@ -443,19 +449,34 @@ To model a QCD like jet, we use a single value for $\lambda$ for the whole proce
 
 \subsubsection{Likelihood reconstruction}
 
-We reconstruct the parent momentum by adding the children momentum. 
+For each pair of nodes in a tree, we reconstruct the parent momentum by adding the children momentum. 
 \bea
 {p}^\mu_\text{p} &= p^\mu_\text{L}+ p^\mu_\text{R}
 \eea
 
 
-Given each 4-momentum vector $p^\mu = (E, \vec{p})$, we find the invariant mass squared as $t= E^2-|\vec{p}|^2$. 
-Then we identify $t_L$ with the child with greater invariant mass and find the likelihood of a parent going to $t_L$ and $t_R$ from Eqs. \ref{eq:exponential1} and \ref{eq:exponential2}:
-\beq
-\ell= f(t_L | \lambda, t_{\text{P}}) \cdot f(t_R | \lambda, t_{\text{P}}, t_L)
-\eeq
-For the leaves, we find the probability of having sampled a value of $t < t_{\text{cut}}$.
+Given each 4-momentum vector $p^\mu = (E, \vec{p}\,)$, we find the invariant mass squared as $t= E^2-|\vec{p}\,|^2$. 
+Then we identify $t_L$ with the child with greater invariant mass and define
+\bea\label{parentmasses}
+t_\text{p}^L & \equiv t_{\text{P}}= (p_\text{p}^\mu)^2 = E_\text{p}^2 - |\vec{p}\,|_\text{p}^{\,2}\\
+t_\text{p}^R & = (\sqrt{t_{\text{P}}}-\sqrt{t_L})^2
+\eea
 
+Next we introduce the cumulative density function $F_s^i(t_{\text{cut}},t_{\text{p}}^i)$ for a given shower branch to stop\footnote{If $t_\text{p}^R \leq t_{\text{cut}}$ then $F_s^R=1$.} with $i \in \{L,R\}$, i.e. the probability of having sampled a value of $t < t_{\text{cut}}$. Now, we can define the likelihood of a parent going to $t_L$ and $t_R$ (from Eqs. \ref{eq:exponential1} and \ref{eq:exponential2}) as
+\begin{eqnarray}
+\ell(t_i, \lambda,t_\text{cut},  t_{\text{p}}^i) =
+\left\{    
+\begin{matrix}
+f(t_i | \lambda, t_{\text{p}}^i)\,\,\,\,\,\,\,\, & t_{\text{p}}^i>t_\text{cut}\\
+F_s^i(t_{\text{cut}}, t_{\text{p}}^i) \,\,\,\,\,\,\,\,& t_{\text{p}}^i\leq t_\text{cut} \\
+\end{matrix}\right.
+\end{eqnarray}
+for $i \in \{L,R\}$.
+Finally, we add a factor that considers the probability of splitting given by $(1-F_s(t_{\text{cut}}, t_{\text{P}}))$ and the likelihood from sampling uniformly over the two-sphere as $\frac{1}{4 \pi}$. Thus, putting it all together, we obtain the splitting likelihood of a parent node into a L and R children as\footnote{Note that in \cite{Cranmer:2021gdt, Greenberg:2021nrg, Brehmer:2020brs, Greenberg:2020heb}  we used a different objective function for the likelihood. The only difference is that it did not include the probability of splitting  $(1-F_s(t_{\text{cut}},t_{\text{P}}))$.}
+\beq
+\mathcal{F}(t_L,t_R, \lambda,t_{\text{cut}}) = \frac{1}{4 \pi} (1-F_s(t_{\text{cut}},t_{\text{P}})) \,\, \ell(t_L, \lambda,t_\text{cut},  t_{\text{p}}^L) \,\, \ell(t_R, \lambda,t_\text{cut},  t_{\text{p}}^R) 
+\eeq
+% For the leaves we 
 
 %\subsubsection{Reconstruct $\{\vec{p}_\text{p}$, $\Delta_{\text{p}}$, $\phi_{\text{p}}$, $r_L$, $r_R\}$ from  $\{\Delta_L$, $\Delta_R$, $\vec{p}_\text{L}$, $ \vec{p}_\text{R}\}$ }
 %
@@ -511,22 +532,210 @@ For the leaves, we find the probability of having sampled a value of $t < t_{\te
 %where $r_{\text{L}}$ and $r_{\text{R}}$ are independently drawn from an exponential distribution as in (\ref{eq:exponential}) for $r \in [0,1)$.
 %
 
-\subsubsection{Upper Bound on trees Likelihood}
+\section{Heuristic functions to implement $A^*$ on hierarchical clustering of Ginkgo Jets}
+In this section we describe heuristic functions to set an upper bound on the log likelihood of Ginkgo jets. We want to minimize this upper bound, i.e. the closer it is to the exact maximum likelihood hierarchy the better.
 
-Below we show how to obtain an upper bound on a jet likelihood. This could be useful to implement the A* search algorithm on Ginkgo jets.
+\subsection{Basic heuristic functions}
 
-a) \textbf{Inner nodes}
-\bea
+% \paragraph{A- Inner nodes}
+% \bea
+%  f(t | \lambda, t_{\text{P}})=\frac{1}{1-e^{- \lambda}} \frac{\lambda}{t_{\text{P}}} e^{- \frac{\lambda}{ t_{\text{P}}} t} 
+% \eea
+
+% We maximize this function by taking $t \rightarrow 0$ and $t_{\text{P}} = t_{\text{cut}}$.
+
+% \paragraph{B- Outer nodes}
+% \bea
+%  f(t | \lambda, t_{\text{P}})=\frac{1}{1-e^{- \lambda}} \bigg(1-e^{- \frac{\lambda}{ t_{\text{P}}} t_{\text{cut}}}\bigg) 
+% \eea
+
+% We maximize it by taking $t_{\text{Pi}} = \min_{\{j \neq i,\, j\, \text{in leaves}\}} t(p_i+p_j)$
+
+% \subsection{Improved heuristic functions}
+
+\subsubsection{ Inner nodes}
+We want to find the smallest possible upper bound to 
+\bea\label{inner_lh}
  f(t | \lambda, t_{\text{P}})=\frac{1}{1-e^{- \lambda}} \frac{\lambda}{t_{\text{P}}} e^{- \frac{\lambda}{ t_{\text{P}}} t} 
 \eea
 
-We maximize this function by taking $t \rightarrow 0$ and $t_{\text{P}} = t_{\text{cut}}$.
+{\bf Basic bound:} We maximize this function by taking $t \rightarrow 0$ and $t_{\text{P}} = t_{\text{cut}}$.
 
-b) \textbf{Leaves}
+{\bf Improved bound:}
+We first focus on getting an upper bound for $ t_{\text{P}}$ in the exponential of eq. (\ref{inner_lh}). The upper bound for all the parent masses is given by the mass squared of the root vertex $t_{root}$ (vertex with all the elements). 
+
+Next, we look for the biggest lower bound on $t$ in the exponential of eq. (\ref{inner_lh}).
+We consider a fully unbalanced tree as the topology with the smallest values of $t$ per level and we bound each level in a bottom up approach (singletons are at the bottom).  For each inner vertex, the mass squared $t$ has to be greater than $t_{cut}$. Thus, for each element, we find the smallest parent invariant mass squared $t_{\text{Pi}}$ that is above the threshold $t_{cut}$, else set this value to $t_{cut}$ and save it to a list $t_{min}$. We sort this list and start a new list $t_{bound}$ with the first  $N//2$ entries of $t_{min}$ for the first level, where $N$ is the number of elements to cluster (this maximizes the number of possible nodes at the first level).
+For the second level, we take $t_p^0$ as the minimum value in $t_{min}$ that is greater than $t_{cut}$ and bound the values by 
+$[\tilde{t} *(i\%2)+ t_p^0*(i//2)] * (j// 2)$ for  $i = 3$ and $j = N \% 2 + N // 2$, where $\tilde{t}$ is the minimum element invariant mass squared. This is because $(j// 2)$ bounds the total number of nodes at current level and $i$ the minimum number of elements of a vertex at current level.
+% For the second level, we take $\sum_{i=0}^3 t_i$ with $t_i$ the smallest three values for the invariant mass squared among all the elements. 
+We calculate this bound level by level, maximizing the possible number of nodes at each level. This is described in Algorithm 2.
+
+
+\begin{algorithm}
+    \SetKwInOut{Input}{Input}
+    \SetKwInOut{Output}{Output}
+
+    function lowerBound-$t$ $(t_i, t_{min}, N)$\\
+    \Input{elements invariant mass squared: $t_i$, list with minimum parent mass squared for a pairing of two elements above $t_{cut}$: $t_{min}$, number of elements: $N$}
+    \Indp
+    $m^2= sort([t_i \text{ for i in elements}])$\\
+    $t_{bound} = sort(t_{min})[0:N // 2]$\\
+    i = 3\\
+    $j = N \% 2 + N // 2$\\
+
+    \While {$len(t_{bound}) < N - 2$}
+         {  
+        % $t_{bound} = \text{concatenate}(t_{bound}, [ sum(m^2[0:i])] * (j // 2))$\\
+        $t_{bound} = \text{concatenate}(t_{bound}, [\tilde{t} *(i\%2)+ t_p^0*(i//2)] * (j// 2))$\\
+        $j =  j \% 2 + j // 2 $\\
+        $i += 1$
+        }
+    \Return $t_{bound}$
+    \caption{Lower bound on $t$ in eq. (\ref{inner_lh})}
+\end{algorithm}
+
+
+Finally, to get a bound for $t_{\text{P}}$ in the denominator of eq. (\ref{inner_lh}) we want the minimum possible values. Thus we take $\tilde{t}_P = t_{bound}+ \tilde{t}$ (given that the parent of any inner node contains at least one more element) except when $t_{bound} < \text{max}\{t_i\}_{i=0}^N$ where we just keep $\tilde{t}_P =t_{bound}$ (see section \ref{Generatiion} for more details about the value of $t_P$).
+% These are parents of inner nodes, so they have at least three elements. We use the following:
+% \bea
+% m_{a+c}^2 + m_{b}^2 < m_{a+c+b}^2 < 3 m_{a+c}^2 + m_{b}^2 < 3 (3 m_a^2+m_c^2) + + m_{b}^2
+% \eea
+Putting it all together, the upper bound for eq.  (\ref{inner_lh}) is
 \bea
+\sum \log f^{bound} = [-\log(1 - e^{- \lambda}) + \log(\lambda)] - \sum_{i=0}^{N-2} \bigg(\log(\tilde{t}_P ) + \lambda * \frac{t_{bound}^i }{ t_{root}} \bigg)
+\eea
+
+
+\subsubsection{ Outer nodes}
+We want to find the smallest possible upper bound to 
+\bea\label{outer_lh}
  f(t | \lambda, t_{\text{P}})=\frac{1}{1-e^{- \lambda}} \bigg(1-e^{- \frac{\lambda}{ t_{\text{P}}} t_{\text{cut}}}\bigg) 
 \eea
 
-We maximize it by taking $t_{\text{Pi}} = \min_{\{j \neq i,\, j\, \text{in leaves}\}} t(p_i+p_j)$
+{\bf Basic bound:} We maximize it by taking $t_{\text{Pi}} = \min_{\{j \neq i,\, j\, \text{in leaves}\}} t(p_i+p_j)$
 
+{\bf Improved bound:}
+We want the maximum possible value of  $t_{\text{P}}$ while still getting an upper bound in  eq. (\ref{outer_lh}).
+A parent consists of a pairing of two elements (leaves). For each element, find the smallest parent invariant mass squared $t_{\text{Pi}}$ that is above the threshold $t_{cut}$, else set this mass to $t_{cut}$. We sort and save this list $t_{min}$.
+We do not know the order in which the two children are sampled, the minimum value happens when each child is sampled last, $t_{\text{Pi}} \rightarrow (\sqrt{t_{\text{Pi}}} - \sqrt{t_i})^2$  (see section \ref{Generatiion} for more details). We take the minimum value greater than $t_{cut}$ in $t_{min}$ and refer to it as $t^0_{\text{Pi}}$. Thus we get  $t_{\text{Pi}} =  (\sqrt{t^0_{\text{Pi}}} - \sqrt{t_i})^2$. For the element with greatest invariant mass squared $t_i$ we just keep $t_{\text{Pi}} =t^0_{\text{Pi}}$.
+Finally, sum the likelihood over each element $i$.
+
+
+Below we plot in figure \ref{fig:bounds} both bounds on a dataset of  5000 Ginkgo jets.
+\begin{figure*}
+{
+  \includegraphics[width=0.6\linewidth]{figs/UpperBoundsonLogLH_exact.pdf}
+%  \includegraphics[width=0.5\linewidth]{plots/figTruthTruth_fullpath_jet2}
+}
+\caption{\small{We show a scatter plot for the values of the basic (black) and improved (color scale) bounds on 5000 Ginkgo jets. We can see that all values are above the diagonal.
+}}
+\label{fig:bounds}
+\end{figure*}
+
+
+% #################################################################################
+\section{Joint likelihood}
+
+We define the joint likelihood in Ginkgo as 
+\begin{equation}\label{totalLH}
+    p(\{p_i^\mu\}_{i=1}^N, \tau_k, N | \lambda) =  p(\{p_i^\mu\}_{i=1}^N| \tau_k , N, \lambda) \,\,\,\,p( \tau_k |N,\lambda)\,\,\,\ p(N |\lambda)
+\end{equation}
+
+with $\tau$ labeling a hierarchical clustering and $N$ the number of elements of the dataset (jet constituents).\footnote{ $p^\mu_L$ and $p^\mu_R$ are derived from momentum conservation (and a boost to the lab frame) given $t_P,\,\,t_L$ and $t_R$.} 
+
+Given model parameters $\lambda$, $N$, and $\tau$ we have for the first term in eq. (\ref{totalLH})
+\begin{equation}
+ p(\{p_i^\mu\}_{i=1}^N| \tau_k , N, \lambda) = \frac{1}{Z}\,\, \tilde{p}(\{p_i^\mu\}_{i=1}^N| \tau_k , N, \lambda)
+\end{equation}
+with $Z$ the partition function and $\tilde{p}$ the unnormalized likelihood,
+\begin{equation}
+\tilde{p}(\{p_i^\mu\}_{i=1}^N| \tau_k , N, \lambda) \equiv \tilde{p}(x,z| \lambda) = \prod_j \tilde{p}(x_j|z_{\text{parent(xj)}},\lambda) \prod_i \tilde{p}(z_i| z_{\text{parent(zi)}}, \lambda)
+\end{equation}
+where $p(x_j|z_{\text{parent(xj)}},\lambda)$ are delta functions related to how we assign the available momentum values to the leaves of the tree, and 
+% $\tilde{p}(z_i| z_{\text{parent(zi)}}, \lambda) \equiv \tilde{p}(x_j|z_{\text{parent(xj)}},\lambda)$ is given by eq. (\ref{splittingLH}) (and a constant $1/4 \pi$ to account for the solid angle, and
+% And we have:
+\begin{align}
+    \tilde{p}(z_i| z_{\text{parent(zi)}}, \lambda) & \equiv p(t_L^i,t_R^i,\phi^i,\theta^i|t_p^i,\lambda) \nonumber \\ &=
+    f(t_L^i | \lambda, t_{\text{P}}^i) \cdot f(t_R^i | \lambda, (\sqrt{t_{\text{P}}^i}-\sqrt{t_L^i})^2) \cdot \frac{1}{4 \pi}
+\end{align}
+
+For the likelihood of a hierarchy (including the assignment of the elements), second term in eq. (\ref{totalLH}), we get,
+\begin{equation}
+ p( \tau_k | N ) = \frac{1}{(2N-3)!!} 
+\end{equation}
+
+Finally we want to define the third term in eq. (\ref{totalLH}), $p(N |\lambda)$. Each time we sample a value $t > t_{cut}$ we add one element to the hierarchy because the new node in the tree is a non-leaf node. Thus, if we stop the showering process at some intermediate state we have,
+\begin{eqnarray}
+\tilde{p} (N+1 | \lambda, \{t_P^i\}_{i=1}^{N-1}) = \tilde{p} (N | \lambda, \{t_P^i\}_{i=1}^{N-1}) \frac{1}{N-1} \sum_{i=1}^{N-1} F(t_{cut} | \lambda, t_p^i)
+\end{eqnarray}
+
+with
+\begin{eqnarray}
+F(t_{cut} | \lambda, t_p^i) =
+\left\{    
+\begin{matrix}
+\int_{t_{cut}}^{t_P^i} f(t| \lambda, t_P^i) dt \,\,\,\,\,\,\,\, &t_P^i>t_{cut}\\
+0 \,\,\,\,\,\,\,\,& t_P^i \leq t_{cut} \\
+\end{matrix}\right.
+\end{eqnarray}
+
+Thus we get
+\begin{eqnarray}
+\small{
+\tilde{p} (N | \lambda, \{t_P^i\}_{i=1}^{N-2}) =
+\left\{    
+\begin{matrix}
+1 \,\,\,\,\,\,\,\, & N=2\\
+\prod_{n=3}^N \tilde{p}(n| \lambda,  \{t_P^i\}_{i=1}^{n-2})  = \prod_{n=3}^N  \frac{1}{n-2} \sum_{i=1}^{n-2} F(t_{cut} | \lambda, t_p^i) \,\,\,\,\,\,\,\, t_P^i \leq t_{cut}\,\,\,\,\,\,\,\, & N>2 \\
+\end{matrix}\right.
+}
+\end{eqnarray}
+
+
+Finally, marginalizing over $\{t_P^i\}$
+\begin{eqnarray}
+\tilde{p}(N|\lambda) = \int_{t_P^i} \tilde{p} (N | \lambda, \{t_P^i\}_{i=1}^{N-2}) 
+\end{eqnarray}
+with the constraint that for each pair of sibling nodes we require $\sqrt{t_P} > \sqrt{t_L} + \sqrt{t_R}$
+
+Thus, the normalized likelihood is 
+\begin{eqnarray}
+p(N | \lambda) = \frac{1}{Z_N} \tilde{p}(N|\lambda)
+\end{eqnarray}
+with 
+\begin{eqnarray}
+Z_N = \sum_{N=2}^\infty  \tilde{p}(N|\lambda)
+\end{eqnarray}
+% #########
+\subsubsection{ Likelihood of a particular topology}
+
+We can also find the likelihood for a fixed tree structure, marginalizing over the assignment of the elements. In this case we have 
+\begin{equation}
+ p(\{p_i^\mu\}_{i=1}^N| \{\tau_k\}_{k=1}^m , N, \lambda) = \frac{1}{Z}\,\, \sum_{k=1}^m \tilde{p}(\{p_i^\mu\}_{i=1}^N| \tau_k , N, \lambda)
+\end{equation}
+
+where $\{\tau_k\}_{k=1}^m $ includes all the hierarchies with an identical structure. In this case we get
+\begin{equation}
+ p( \{\tau_k\}_{k=1}^m | N ) = \frac{1}{(2N-3)!!} \frac{N!}{2^k},
+\end{equation}
+here $k$ is defined as the number of permutations of the branches/sub-branches of a hierarchy that leave the topology invariant.
+
+
+
+% There is also: $ P = p(\text{momentum}|\text{tree}) \cdot p(\text{tree})$.
+% Here I would identify 
+% \begin{align}
+%     p(\text{momentum}|\text{tree}) = \prod_i p(t_L^i,p_R^i,\phi^i,\theta^i|t_p^i,\lambda)
+% \end{align}
+% and
+% \begin{align}
+% p(\text{tree}) = \frac{1}{\text{all possible trees}} \cdot (\text{all trees with same topology})
+% \end{align}
+% Finally, we would ask:
+% \begin{align}
+%     \int_{\text{constraint that respect the latent structure}} \prod_i p(t_L^i,p_R^i,\phi^i,\theta^i|t_p^i,\lambda) d\phi^i d\theta^i dt_L^i dt_R^i =1
+% \end{align}
+
+\bibliography{references}
 \end{document}
